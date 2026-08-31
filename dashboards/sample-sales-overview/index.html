@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Performance Overview</title>
+
+  <!--
+    Worked example built from dashboards/template/index.html. It's fully
+    self-contained (own styles + script, no dependency on the portfolio
+    site) and demonstrates: KPI tiles, a filterable trend line with
+    crosshair tooltip, a column chart with per-bar tooltips, and a
+    category-share bar with a legend — plus a data-table fallback on
+    each chart. All data below is illustrative, not real.
+  -->
+
+  <style>
+    .viz-root {
+      color-scheme: light;
+      --surface-1: #fcfcfb;
+      --surface-2: #f9f9f7;
+      --text-primary: #0b0b0b;
+      --text-secondary: #52514e;
+      --text-muted: #898781;
+      --border: rgba(11, 11, 11, 0.10);
+      --gridline: #e1e0d9;
+      --series-1: #2a78d6;
+      --series-2: #eb6834;
+      --series-3: #1baf7a;
+      --status-good: #0ca30c;
+      --status-critical: #d03b3b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:where(:not([data-theme="light"])) .viz-root {
+        color-scheme: dark;
+        --surface-1: #1a1a19;
+        --surface-2: #0d0d0d;
+        --text-primary: #ffffff;
+        --text-secondary: #c3c2b7;
+        --text-muted: #898781;
+        --border: rgba(255, 255, 255, 0.10);
+        --gridline: #2c2c2a;
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --series-3: #199e70;
+        --status-good: #0ca30c;
+        --status-critical: #e66767;
+      }
+    }
+    :root[data-theme="dark"] .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --border: rgba(255, 255, 255, 0.10);
+      --gridline: #2c2c2a;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --status-good: #0ca30c;
+      --status-critical: #e66767;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    .viz-root {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--surface-2);
+      color: var(--text-primary);
+      min-height: 100%;
+    }
+
+    .db-title-bar {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-1);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .db-title-bar h1 { font-size: 1.15rem; margin: 0; }
+    .db-title-bar .db-subtitle { color: var(--text-muted); font-size: 0.85rem; }
+
+    .db-filters {
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .db-filters .filter-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+    .range-btn {
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-1);
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .range-btn[aria-pressed="true"] {
+      background: var(--series-1);
+      border-color: var(--series-1);
+      color: #fff;
+    }
+
+    .db-kpis {
+      padding: 20px 24px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .db-kpi {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .db-kpi .label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+    .db-kpi .value { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
+    .db-kpi .delta { font-size: 0.8rem; margin-top: 4px; }
+    .db-kpi .delta.good { color: var(--status-good); }
+    .db-kpi .delta.bad { color: var(--status-critical); }
+
+    .db-sheets {
+      padding: 20px 24px 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .db-sheet {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+    }
+    .db-sheet.full { grid-column: 1 / -1; }
+    .db-sheet h2 { font-size: 0.9rem; margin: 0 0 4px; }
+    .db-sheet .sheet-sub { font-size: 0.76rem; color: var(--text-muted); margin: 0 0 12px; }
+
+    .chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .chart-svg text { font-family: inherit; }
+    .axis-label { fill: var(--text-muted); font-size: 10px; }
+    .value-label { fill: var(--text-secondary); font-size: 10px; font-weight: 600; }
+    .gridline { stroke: var(--gridline); stroke-width: 1; }
+    .baseline { stroke: var(--gridline); stroke-width: 1; }
+
+    .bar-hit { fill: transparent; cursor: pointer; }
+    .bar-hit:focus-visible { outline: 2px solid var(--series-1); outline-offset: -2px; }
+    .bar-shape { fill: var(--series-1); transition: filter 0.1s ease; }
+    .bar-hit:hover + .bar-shape,
+    .bar-hit:focus + .bar-shape { filter: brightness(1.12); }
+
+    .line-path { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .line-marker { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+    .crosshair { stroke: var(--text-muted); stroke-width: 1; opacity: 0; pointer-events: none; }
+    .line-overlay { fill: transparent; }
+    .end-label { fill: var(--text-primary); font-size: 11px; font-weight: 700; }
+
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      opacity: 0;
+      transform: translate(-50%, -110%);
+      transition: opacity 0.1s ease;
+      white-space: nowrap;
+      z-index: 5;
+    }
+    .chart-tooltip.visible { opacity: 1; }
+    .chart-tooltip .tt-value { font-weight: 700; color: var(--text-primary); }
+    .chart-tooltip .tt-label { color: var(--text-secondary); margin-left: 4px; }
+
+    .share-bar {
+      display: flex;
+      gap: 2px;
+      height: 30px;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .share-seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+    .share-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .share-legend .item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+    }
+    .share-legend .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex: none;
+    }
+    .share-legend .name { color: var(--text-secondary); }
+    .share-legend .pct { color: var(--text-primary); font-weight: 700; }
+
+    details.data-table {
+      margin-top: 12px;
+    }
+    details.data-table summary {
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    details.data-table table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.82rem;
+    }
+    details.data-table th, details.data-table td {
+      text-align: left;
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+    details.data-table th { color: var(--text-muted); font-weight: 600; }
+
+    .db-footer {
+      padding: 0 24px 24px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="viz-root">
+
+    <div class="db-title-bar">
+      <h1>Sales Performance Overview</h1>
+      <span class="db-subtitle">Illustrative sample data · Sep 2025 – Aug 2026</span>
+    </div>
+
+    <div class="db-filters">
+      <span class="filter-label">Range:</span>
+      <button type="button" class="range-btn" data-range="6" aria-pressed="true">Last 6 months</button>
+      <button type="button" class="range-btn" data-range="12" aria-pressed="false">Last 12 months</button>
+    </div>
+
+    <div class="db-kpis" data-kpis></div>
+
+    <div class="db-sheets">
+      <div class="db-sheet">
+        <h2>Revenue Trend</h2>
+        <p class="sheet-sub">Total revenue by month, all regions</p>
+        <div data-line-chart></div>
+        <details class="data-table">
+          <summary>View as data table</summary>
+          <table data-line-table><thead><tr><th>Month</th><th>Revenue</th></tr></thead><tbody></tbody></table>
+        </details>
+      </div>
+
+      <div class="db-sheet">
+        <h2>Revenue by Region</h2>
+        <p class="sheet-sub">Selected range, summed per region</p>
+        <div data-bar-chart></div>
+        <details class="data-table">
+          <summary>View as data table</summary>
+          <table data-bar-table><thead><tr><th>Region</th><th>Revenue</th></tr></thead><tbody></tbody></table>
+        </details>
+      </div>
+
+      <div class="db-sheet full">
+        <h2>Revenue by Category</h2>
+        <p class="sheet-sub">Share of total revenue, full period</p>
+        <div data-share-chart></div>
+        <details class="data-table">
+          <summary>View as data table</summary>
+          <table data-share-table><thead><tr><th>Category</th><th>Share</th></tr></thead><tbody></tbody></table>
+        </details>
+      </div>
+    </div>
+
+    <p class="db-footer">Data source: sample dataset embedded in this file, for demonstration only.</p>
+  </div>
+
+  <script>
+    (function () {
+      var MONTHS = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
+
+      var REVENUE_BY_REGION = {
+        "North America": [82, 85, 90, 110, 88, 92, 95, 98, 101, 104, 107, 112],
+        "Europe":        [54, 56, 58, 70, 55, 57, 59, 61, 63, 65, 66, 69],
+        "APAC":          [38, 40, 41, 50, 42, 44, 46, 47, 49, 51, 53, 56],
+        "LATAM":         [19, 20, 21, 25, 21, 22, 23, 24, 25, 26, 27, 28]
+      };
+
+      var ORDERS_BY_MONTH = [1120, 1180, 1240, 1510, 1190, 1230, 1265, 1300, 1340, 1380, 1410, 1460];
+
+      var CATEGORY_SHARE = [
+        { name: "Software", pct: 46, color: "var(--series-1)" },
+        { name: "Services", pct: 33, color: "var(--series-2)" },
+        { name: "Hardware", pct: 21, color: "var(--series-3)" }
+      ];
+
+      var PRIOR_YEAR_FACTOR = { revenue: 0.90, orders: 0.93 };
+
+      var totalRevenueByMonth = MONTHS.map(function (_, i) {
+        return Object.keys(REVENUE_BY_REGION).reduce(function (sum, r) {
+          return sum + REVENUE_BY_REGION[r][i];
+        }, 0);
+      });
+
+      var state = { rangeMonths: 6 };
+
+      function formatCurrency(raw) {
+        if (Math.abs(raw) >= 1e6) return "$" + (raw / 1e6).toFixed(1) + "M";
+        if (Math.abs(raw) >= 1e3) return "$" + (raw / 1e3).toFixed(1) + "K";
+        return "$" + Math.round(raw);
+      }
+
+      function formatCount(n) {
+        if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + "K";
+        return String(Math.round(n));
+      }
+
+      function sum(arr) { return arr.reduce(function (a, b) { return a + b; }, 0); }
+
+      function windowTotals(arr, n) {
+        var cur = sum(arr.slice(12 - n));
+        var prior = (n * 2 <= 12) ? sum(arr.slice(12 - 2 * n, 12 - n)) : null;
+        return { cur: cur, prior: prior };
+      }
+
+      function deltaPct(cur, prior) {
+        if (!prior) return 0;
+        return ((cur - prior) / prior) * 100;
+      }
+
+      function renderKpis() {
+        var n = state.rangeMonths;
+        var rev = windowTotals(totalRevenueByMonth, n);
+        var ord = windowTotals(ORDERS_BY_MONTH, n);
+
+        if (rev.prior === null) rev.prior = rev.cur * PRIOR_YEAR_FACTOR.revenue;
+        if (ord.prior === null) ord.prior = ord.cur * PRIOR_YEAR_FACTOR.orders;
+
+        var revRawCur = rev.cur * 1000, revRawPrior = rev.prior * 1000;
+        var aovCur = revRawCur / ord.cur, aovPrior = revRawPrior / ord.prior;
+
+        var revDelta = deltaPct(revRawCur, revRawPrior);
+        var ordDelta = deltaPct(ord.cur, ord.prior);
+        var aovDelta = deltaPct(aovCur, aovPrior);
+
+        var vsLabel = n === 6 ? "vs prior 6 months" : "vs prior year";
+
+        var tiles = [
+          { label: "Total Revenue", value: formatCurrency(revRawCur), delta: revDelta },
+          { label: "Orders", value: formatCount(ord.cur), delta: ordDelta },
+          { label: "Avg Order Value", value: formatCurrency(aovCur), delta: aovDelta },
+          { label: "Revenue Growth", value: (revDelta >= 0 ? "+" : "") + revDelta.toFixed(1) + "%", delta: null }
+        ];
+
+        var host = document.querySelector("[data-kpis]");
+        host.innerHTML = tiles.map(function (t) {
+          var deltaHtml = "";
+          if (t.delta !== null) {
+            var good = t.delta >= 0;
+            deltaHtml = '<div class="delta ' + (good ? "good" : "bad") + '">' +
+              (good ? "▲ " : "▼ ") + Math.abs(t.delta).toFixed(1) + "% " + vsLabel + "</div>";
+          } else {
+            deltaHtml = '<div class="delta good">' + vsLabel + "</div>";
+          }
+          return '<div class="db-kpi"><div class="label"></div><div class="value"></div>' + deltaHtml + "</div>";
+        }).join("");
+
+        var kpiEls = host.querySelectorAll(".db-kpi");
+        tiles.forEach(function (t, i) {
+          kpiEls[i].querySelector(".label").textContent = t.label;
+          kpiEls[i].querySelector(".value").textContent = t.value;
+        });
+      }
+
+      function ensureTooltip(container) {
+        var tip = container.querySelector(".chart-tooltip");
+        if (!tip) {
+          tip = document.createElement("div");
+          tip.className = "chart-tooltip";
+          container.style.position = "relative";
+          container.appendChild(tip);
+        }
+        return tip;
+      }
+
+      function showTooltip(tip, container, x, y, valueText, labelText) {
+        tip.innerHTML = "";
+        var strong = document.createElement("span");
+        strong.className = "tt-value";
+        strong.textContent = valueText;
+        var muted = document.createElement("span");
+        muted.className = "tt-label";
+        muted.textContent = labelText;
+        tip.appendChild(strong);
+        tip.appendChild(muted);
+        tip.style.left = x + "px";
+        tip.style.top = y + "px";
+        tip.classList.add("visible");
+      }
+
+      function hideTooltip(tip) {
+        tip.classList.remove("visible");
+      }
+
+      // ---- Bar chart: Revenue by Region (selected range) ----
+      function renderBarChart() {
+        var n = state.rangeMonths;
+        var regions = Object.keys(REVENUE_BY_REGION);
+        var totals = regions.map(function (r) {
+          return sum(REVENUE_BY_REGION[r].slice(12 - n));
+        });
+
+        var w = 400, h = 260, padL = 8, padR = 8, padT = 24, padB = 28;
+        var plotW = w - padL - padR, plotH = h - padT - padB;
+        var max = Math.max.apply(null, totals) * 1.15;
+        var bandW = plotW / regions.length;
+        var barW = Math.min(24, bandW * 0.5);
+        var radius = 4;
+
+        var ticks = [0, 0.5, 1].map(function (f) { return Math.round(max * f); });
+
+        function barPath(x, yTop, yBottom, width, r) {
+          return "M" + x + "," + yBottom +
+            " L" + x + "," + (yTop + r) +
+            " Q" + x + "," + yTop + " " + (x + r) + "," + yTop +
+            " L" + (x + width - r) + "," + yTop +
+            " Q" + (x + width) + "," + yTop + " " + (x + width) + "," + (yTop + r) +
+            " L" + (x + width) + "," + yBottom + " Z";
+        }
+
+        var gridSvg = ticks.map(function (t) {
+          var y = padT + plotH - (t / max) * plotH;
+          return '<line class="gridline" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y + '" y2="' + y + '"/>' +
+            '<text class="axis-label" x="' + padL + '" y="' + (y - 4) + '">' + formatCurrency(t * 1000) + "</text>";
+        }).join("");
+
+        var baseline = padT + plotH;
+
+        var barsSvg = regions.map(function (region, i) {
+          var x = padL + i * bandW + (bandW - barW) / 2;
+          var yTop = padT + plotH - (totals[i] / max) * plotH;
+          var d = barPath(x, yTop, baseline, barW, radius);
+          var label = regions[i];
+          return (
+            '<rect class="bar-hit" tabindex="0" role="img" aria-label="' + label + ': ' + formatCurrency(totals[i] * 1000) + '" data-i="' + i + '" x="' + (padL + i * bandW) + '" y="' + padT + '" width="' + bandW + '" height="' + plotH + '"></rect>' +
+            '<path class="bar-shape" d="' + d + '" pointer-events="none"></path>' +
+            '<text class="value-label" x="' + (x + barW / 2) + '" y="' + (yTop - 6) + '" text-anchor="middle" pointer-events="none">' + formatCurrency(totals[i] * 1000) + "</text>" +
+            '<text class="axis-label" x="' + (x + barW / 2) + '" y="' + (baseline + 16) + '" text-anchor="middle" pointer-events="none">' + label + "</text>"
+          );
+        }).join("");
+
+        var host = document.querySelector("[data-bar-chart]");
+        host.innerHTML =
+          '<svg class="chart-svg" viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="Revenue by region">' +
+          gridSvg +
+          '<line class="baseline" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + baseline + '" y2="' + baseline + '"/>' +
+          barsSvg +
+          "</svg>";
+
+        var tip = ensureTooltip(host);
+        var svgEl = host.querySelector("svg");
+        svgEl.querySelectorAll(".bar-hit").forEach(function (hit) {
+          hit.addEventListener("pointerenter", onHover);
+          hit.addEventListener("pointermove", onHover);
+          hit.addEventListener("focus", onHover);
+          hit.addEventListener("pointerleave", function () { hideTooltip(tip); });
+          hit.addEventListener("blur", function () { hideTooltip(tip); });
+        });
+
+        function onHover(e) {
+          var i = +e.currentTarget.getAttribute("data-i");
+          var rect = host.getBoundingClientRect();
+          var x = (e.clientX || rect.left + rect.width / 2) - rect.left;
+          var y = e.clientY ? e.clientY - rect.top : 20;
+          showTooltip(tip, host, x, y, formatCurrency(totals[i] * 1000), regions[i]);
+        }
+
+        var tbody = document.querySelector("[data-bar-table] tbody");
+        tbody.innerHTML = regions.map(function (r, i) {
+          return "<tr><td>" + r + "</td><td>" + formatCurrency(totals[i] * 1000) + "</td></tr>";
+        }).join("");
+      }
+
+      // ---- Line chart: Revenue Trend (selected range) ----
+      function renderLineChart() {
+        var n = state.rangeMonths;
+        var months = MONTHS.slice(12 - n);
+        var values = totalRevenueByMonth.slice(12 - n);
+
+        var w = 560, h = 260, padL = 8, padR = 40, padT = 24, padB = 28;
+        var plotW = w - padL - padR, plotH = h - padT - padB;
+        var max = Math.max.apply(null, values) * 1.15;
+        var baseline = padT + plotH;
+
+        function xAt(i) { return padL + (i / (values.length - 1)) * plotW; }
+        function yAt(v) { return padT + plotH - (v / max) * plotH; }
+
+        var ticks = [0, 0.5, 1].map(function (f) { return Math.round(max * f); });
+        var gridSvg = ticks.map(function (t) {
+          var y = baseline - (t / max) * plotH;
+          return '<line class="gridline" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y + '" y2="' + y + '"/>' +
+            '<text class="axis-label" x="' + padL + '" y="' + (y - 4) + '">' + formatCurrency(t * 1000) + "</text>";
+        }).join("");
+
+        var pathD = values.map(function (v, i) {
+          return (i === 0 ? "M" : "L") + xAt(i) + "," + yAt(v);
+        }).join(" ");
+
+        var markersSvg = values.map(function (v, i) {
+          return '<circle class="line-marker" cx="' + xAt(i) + '" cy="' + yAt(v) + '" r="4"></circle>';
+        }).join("");
+
+        var xLabelsSvg = months.map(function (m, i) {
+          return '<text class="axis-label" x="' + xAt(i) + '" y="' + (baseline + 16) + '" text-anchor="middle">' + m + "</text>";
+        }).join("");
+
+        var lastI = values.length - 1;
+        var endLabel = '<text class="end-label" x="' + (xAt(lastI) + 8) + '" y="' + (yAt(values[lastI]) + 4) + '">' + formatCurrency(values[lastI] * 1000) + "</text>";
+
+        var host = document.querySelector("[data-line-chart]");
+        host.innerHTML =
+          '<svg class="chart-svg" viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="Revenue trend">' +
+          gridSvg +
+          '<line class="baseline" x1="' + padL + '" x2="' + (w - padR) + '" y1="' + baseline + '" y2="' + baseline + '"/>' +
+          '<path class="line-path" d="' + pathD + '"></path>' +
+          markersSvg + xLabelsSvg + endLabel +
+          '<line class="crosshair" data-crosshair x1="0" x2="0" y1="' + padT + '" y2="' + baseline + '"></line>' +
+          '<rect class="line-overlay" data-overlay x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '"></rect>' +
+          "</svg>";
+
+        var svgEl = host.querySelector("svg");
+        var crosshair = svgEl.querySelector("[data-crosshair]");
+        var overlay = svgEl.querySelector("[data-overlay]");
+        var tip = ensureTooltip(host);
+
+        function nearestIndex(px) {
+          var frac = (px - padL) / plotW;
+          var i = Math.round(frac * (values.length - 1));
+          return Math.max(0, Math.min(values.length - 1, i));
+        }
+
+        overlay.addEventListener("pointermove", function (e) {
+          var svgRect = svgEl.getBoundingClientRect();
+          var scale = w / svgRect.width;
+          var px = (e.clientX - svgRect.left) * scale;
+          var i = nearestIndex(px);
+          var x = xAt(i);
+          crosshair.setAttribute("x1", x);
+          crosshair.setAttribute("x2", x);
+          crosshair.style.opacity = "1";
+
+          var hostRect = host.getBoundingClientRect();
+          var hx = (x / w) * hostRect.width;
+          var hy = (yAt(values[i]) / h) * hostRect.height;
+          showTooltip(tip, host, hx, hy, formatCurrency(values[i] * 1000), months[i]);
+        });
+        overlay.addEventListener("pointerleave", function () {
+          crosshair.style.opacity = "0";
+          hideTooltip(tip);
+        });
+
+        var tbody = document.querySelector("[data-line-table] tbody");
+        tbody.innerHTML = months.map(function (m, i) {
+          return "<tr><td>" + m + "</td><td>" + formatCurrency(values[i] * 1000) + "</td></tr>";
+        }).join("");
+      }
+
+      // ---- Category share ----
+      function renderShareChart() {
+        var host = document.querySelector("[data-share-chart]");
+        var segs = CATEGORY_SHARE.map(function (c) {
+          return '<div class="share-seg" style="flex:' + c.pct + '; background:' + c.color + '">' + c.pct + "%</div>";
+        }).join("");
+        var legend = CATEGORY_SHARE.map(function (c) {
+          return '<div class="item"><span class="swatch" style="background:' + c.color + '"></span>' +
+            '<span class="name">' + c.name + '</span><span class="pct">' + c.pct + "%</span></div>";
+        }).join("");
+        host.innerHTML = '<div class="share-bar">' + segs + '</div><div class="share-legend">' + legend + "</div>";
+
+        var tbody = document.querySelector("[data-share-table] tbody");
+        tbody.innerHTML = CATEGORY_SHARE.map(function (c) {
+          return "<tr><td>" + c.name + "</td><td>" + c.pct + "%</td></tr>";
+        }).join("");
+      }
+
+      function renderAll() {
+        renderKpis();
+        renderBarChart();
+        renderLineChart();
+      }
+
+      document.querySelectorAll(".range-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.rangeMonths = +btn.getAttribute("data-range");
+          document.querySelectorAll(".range-btn").forEach(function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          renderAll();
+        });
+      });
+
+      renderAll();
+      renderShareChart();
+    })();
+  </script>
+</body>
+
+</html>

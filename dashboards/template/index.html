@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Template</title>
+
+  <!--
+    DASHBOARD TEMPLATE
+    ===================
+    Copy this whole folder (dashboards/template/) to a new folder under
+    /dashboards/, e.g. dashboards/my-new-dashboard/, edit this file, then
+    add one entry to /assets/js/dashboards-data.js pointing at it. That's
+    the entire integration — this file is fully self-contained (its own
+    styles, no dependency on the portfolio site's CSS/JS) so it also opens
+    correctly on its own, or embedded in any other page.
+
+    Layout mirrors a typical Tableau dashboard: a title bar, a filter row,
+    KPI tiles, and a grid of chart "sheets". Swap the placeholder content
+    for your real numbers/charts; keep or delete sections as needed.
+  -->
+
+  <style>
+    .viz-root {
+      color-scheme: light;
+      --surface-1: #fcfcfb;
+      --surface-2: #f9f9f7;
+      --text-primary: #0b0b0b;
+      --text-secondary: #52514e;
+      --text-muted: #898781;
+      --border: rgba(11, 11, 11, 0.10);
+      --gridline: #e1e0d9;
+      --series-1: #2a78d6;
+      --series-2: #eb6834;
+      --series-3: #1baf7a;
+      --status-good: #0ca30c;
+      --status-critical: #d03b3b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:where(:not([data-theme="light"])) .viz-root {
+        color-scheme: dark;
+        --surface-1: #1a1a19;
+        --surface-2: #0d0d0d;
+        --text-primary: #ffffff;
+        --text-secondary: #c3c2b7;
+        --text-muted: #898781;
+        --border: rgba(255, 255, 255, 0.10);
+        --gridline: #2c2c2a;
+        --series-1: #3987e5;
+        --series-2: #d95926;
+        --series-3: #199e70;
+        --status-good: #0ca30c;
+        --status-critical: #e66767;
+      }
+    }
+    :root[data-theme="dark"] .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --border: rgba(255, 255, 255, 0.10);
+      --gridline: #2c2c2a;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --status-good: #0ca30c;
+      --status-critical: #e66767;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    .viz-root {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--surface-2);
+      color: var(--text-primary);
+      min-height: 100%;
+    }
+    .db-title-bar {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-1);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .db-title-bar h1 { font-size: 1.15rem; margin: 0; }
+    .db-title-bar .db-subtitle { color: var(--text-muted); font-size: 0.85rem; }
+
+    .db-filters {
+      padding: 12px 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .db-filters select, .db-filters input {
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-1);
+      color: var(--text-primary);
+    }
+
+    .db-kpis {
+      padding: 20px 24px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .db-kpi {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .db-kpi .label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+    .db-kpi .value { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
+    .db-kpi .delta { font-size: 0.8rem; margin-top: 4px; }
+    .db-kpi .delta.good { color: var(--status-good); }
+    .db-kpi .delta.bad { color: var(--status-critical); }
+
+    .db-sheets {
+      padding: 20px 24px 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .db-sheet {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .db-sheet h2 {
+      font-size: 0.9rem;
+      margin: 0 0 12px;
+    }
+    .db-sheet .placeholder {
+      height: 220px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="viz-root">
+
+    <div class="db-title-bar">
+      <h1>Dashboard Title</h1>
+      <span class="db-subtitle">One-line description of what this dashboard shows</span>
+    </div>
+
+    <!-- Optional filter row — wire these to your charts with JS,
+         or delete this section if the dashboard doesn't need filters -->
+    <div class="db-filters">
+      <select aria-label="Date range">
+        <option>Last 30 days</option>
+        <option>Last 90 days</option>
+        <option>Year to date</option>
+      </select>
+      <select aria-label="Category">
+        <option>All categories</option>
+      </select>
+    </div>
+
+    <!-- KPI tiles — swap in real numbers -->
+    <div class="db-kpis">
+      <div class="db-kpi">
+        <div class="label">Metric One</div>
+        <div class="value">0</div>
+        <div class="delta good">▲ 0% vs prior period</div>
+      </div>
+      <div class="db-kpi">
+        <div class="label">Metric Two</div>
+        <div class="value">0</div>
+        <div class="delta good">▲ 0% vs prior period</div>
+      </div>
+      <div class="db-kpi">
+        <div class="label">Metric Three</div>
+        <div class="value">0</div>
+        <div class="delta bad">▼ 0% vs prior period</div>
+      </div>
+      <div class="db-kpi">
+        <div class="label">Metric Four</div>
+        <div class="value">0</div>
+        <div class="delta good">▲ 0% vs prior period</div>
+      </div>
+    </div>
+
+    <!-- Chart "sheets" — replace each placeholder with your chart markup.
+         See /dashboards/sample-sales-overview/index.html for a worked
+         example (bar, line, and category-share charts). -->
+    <div class="db-sheets">
+      <div class="db-sheet">
+        <h2>Sheet One</h2>
+        <div class="placeholder">Chart goes here</div>
+      </div>
+      <div class="db-sheet">
+        <h2>Sheet Two</h2>
+        <div class="placeholder">Chart goes here</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Dashboard Portfolio</title>
+  <meta name="description" content="A portfolio of interactive dashboards.">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232a78d6'/%3E%3Crect x='5' y='13' width='3' height='6' fill='white'/%3E%3Crect x='10.5' y='9' width='3' height='10' fill='white'/%3E%3Crect x='16' y='5' width='3' height='14' fill='white'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <!-- Loading theme.js in <head> avoids a flash of the wrong theme on load -->
+  <script src="assets/js/theme.js"></script>
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="wrap">
+      <div class="brand">
+        <a class="brand-mark" href="index.html">Dashboard Portfolio</a>
+        <span class="brand-tagline">Interactive dashboards, one link at a time.</span>
+      </div>
+      <nav class="site-nav">
+        <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme">☾</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+
+      <section class="hero">
+        <h1>Dashboards</h1>
+        <p>
+          A growing collection of interactive dashboards, built in the Tableau
+          design style and hosted as static HTML. Browse below, or open any
+          dashboard directly.
+        </p>
+      </section>
+
+      <section class="filters" aria-label="Filter dashboards">
+        <input type="search" data-search placeholder="Search dashboards…" aria-label="Search dashboards">
+        <div data-tag-filters aria-label="Filter by tag"></div>
+      </section>
+
+      <section class="gallery" data-gallery aria-live="polite">
+        <!-- Cards are rendered here by assets/js/gallery.js from
+             assets/js/dashboards-data.js -->
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>Built with static HTML — no backend required.</span>
+      <span>Add a dashboard by editing <code>assets/js/dashboards-data.js</code>.</span>
+    </div>
+  </footer>
+
+  <script src="assets/js/dashboards-data.js"></script>
+  <script src="assets/js/gallery.js"></script>
+
+</body>
+
+</html>
